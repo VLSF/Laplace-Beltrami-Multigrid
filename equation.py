@@ -210,6 +210,12 @@ class equation:
         return current
 
     def defects_conv_plot(self):
+        '''
+        Method is solely for tests. In case an exact solution is given it produce
+        a convergence plot in jupyter notebook with inline matplotlib. It should have
+        the -2 slope = - (the order of discretization). If it is not the case you
+        have a typo somewhere.
+        '''
         D1 = []
         D2 = []
         H = []
@@ -232,19 +238,51 @@ class equation:
         plt.legend()
 
     def sparse_representation(self, J, bc='Default', rhs='Default', current=None, Rh=None):
+        '''
+        Compute the (sparse) matrix representation of the equation.
+
+        Parameters
+        ----------
+        J: int
+        The level of the resolution.
+
+        bc: string
+        If `Default` bc is taken from the `self.bc`, if `special` then the parameter
+        `current` should contain bc.
+
+        rhs: string
+        If `Default` bc is taken from the `self.rhs`, if `special` then the parameter
+        `RH` should contain rhs.
+
+        current: None or ndarray
+        Explained above.
+
+        Rh: None or ndarray
+        Explained above.
+
+        Returns
+        -------
+        A: csr_matrix
+        Scipy `csr_matrix` of linear coefficients of the equation. It means that
+        (linear A) (exact solution of the linearized equation) = R.
+
+        R: ndarray
+        Right hand side modified by Dirichlet boundary conditions.
+        '''
         M = 2 ** J + 1
         N = 2 ** J - 1
         h = 2 ** -J
         if self.n_equations == 1:
             if bc == 'Default':
                 trial = [np.zeros((M, M)), ]
+                trial = self.bc(trial)[0]
             if bc == 'Special':
                 trial = current
             if rhs == 'Default':
                 uR = self.rhs(trial)[0]
             if rhs == 'Special':
                 uR = Rh[0]
-            b1 = self.bc(trial)[0]
+            b1 = trial[0]
             a, b, c, d, e, f = self.linear_coefficients([np.zeros((M, M)), ])[0]
             r_mod = llt.modify_rhs(b1, M, [a, b, c, d, e, f])
             # r = uR*h**2 - r_mod
@@ -255,13 +293,14 @@ class equation:
         if self.n_equations == 2:
             if bc == 'Default':
                 trial = [np.zeros((M, M)), np.zeros((M, M))]
+                trial = self.bc(trial)
             if bc == 'Special':
                 trial = current
             if rhs == 'Default':
                 uR1, uR2 = self.rhs(trial)
             if rhs == 'Special':
                 uR1, uR2 = Rh
-            bc = self.bc(trial)
+            bc = trial
             coeff = self.linear_coefficients(trial)
             r_mod_11 = llt.modify_rhs(bc[0], M, coeff[0][:6])
             r_mod_12 = llt.modify_rhs(bc[1], M, coeff[0][6:])
@@ -283,5 +322,10 @@ class equation:
         return A, R
 
     def dense_representation(self, J, bc='Default', rhs='Default', current=None, Rh=None):
+        '''
+        Compute the (dense) matrix representation of the equation.
+
+        Look at the description of the `sparse_representation`.
+        '''
         A, R = self.sparse_representation(J, bc, rhs, current, Rh)
         return A.toarray(), R

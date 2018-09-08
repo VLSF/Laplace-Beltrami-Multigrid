@@ -13,12 +13,36 @@ def transfinite_interpolation(boundary_values):
     return vertical + horizontal
 
 def TI(current):
+    """
+    Function realises ordinary transfinite interpolation.
+    Parameters
+    ----------
+    currend: ndarray
+    Should contain correct boundary conditions.
+
+    Returns
+    -------
+    res: ndarray
+    [x1, y1] boundary values are the same, inner values are interpolated.
+    """
     x, y = current
     y1 = transfinite_interpolation([y[-1, :], y[:, -1], y[0, :], y[:, 0]])
     x1 = transfinite_interpolation([x[-1, :], x[:, -1], x[0, :], x[:, 0]])
     return np.array([x1, y1])
-    
+
 def contravariant_metric(solution):
+    """
+    Function compute contravatiant metric tensor (indices are up).
+    Parameters
+    ----------
+    solution: ndarray
+    Coordinates [x[:, :], y[:, :]]
+
+    Returns
+    -------
+    res: g
+    [[g11, g12], [g21, g22]] each g is of the same shape as `solution[0]`
+    """
     u, v = solution
     N, M = u.shape
     u_x, v_x = llt.dx_with_boundary(u, N), llt.dx_with_boundary(v, N)
@@ -27,6 +51,18 @@ def contravariant_metric(solution):
     return g
 
 def covariant_metric(solution):
+    """
+    Function compute covariant metric tensor (indices are down).
+    Parameters
+    ----------
+    solution: ndarray
+    Coordinates [x[:, :], y[:, :]]
+
+    Returns
+    -------
+    res: g
+    [[g11, g12], [g21, g22]] each g is of the same shape as `solution[0]`
+    """
     u, v = solution
     N, M = u.shape
     u_x, v_x = llt.dx_with_boundary(u, N), llt.dx_with_boundary(v, N)
