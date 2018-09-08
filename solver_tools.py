@@ -1,8 +1,7 @@
 import low_level_tools as llt
 import numpy as np
-import multigrid_utilities as mu
+import equation_tools as et
 from scipy.linalg import solve_banded
-import copy
 
 def solve_pentadiagonal(coeff1, coeff2, bc_left, bc_right, rhs):
     """
@@ -118,7 +117,7 @@ def solve_tridiagonal(coeff1, bc_left, bc_right, rhs):
     """
     R = np.copy(rhs)
     N = len(R)
-    h = llt.get_h(N, '+')
+    h = 1/(N+1)
     a1, b1, c1 = coeff1
     M_left = -b1[0]/(2*h) + a1[0]/(h**2)
     M_right = b1[-1]/(2*h) + a1[-1]/(h**2)
@@ -480,7 +479,7 @@ def xGS_1d(current, coeff, rhs):
     u = np.copy(current[0])
     r1 = rhs[0]
     N, M = u.shape
-    h = llt.get_h(N)
+    h = 1/(N-1)
     for i in range(1, N-1):
         u_mod = llt.xGS_correction(u, N, [a, c, e], i)
         co1 = [b[1:-1, i], d[1:-1, i], f[1:-1, i] - 2*a[1:-1, i]/h**2]
@@ -503,7 +502,7 @@ def yGS_1d(current, coeff, rhs):
     u = np.copy(current[0])
     r1 = rhs[0]
     N, M = u.shape
-    h = llt.get_h(N)
+    h = 1/(N-1)
     for i in range(1, N-1):
         u_mod = llt.yGS_correction(u, N, [b, c, d], i)
         co1 = [a[i, 1:-1], e[i, 1:-1], f[i, 1:-1] - 2*b[i, 1:-1]/h**2]
@@ -535,10 +534,10 @@ def decoupled_xGS_2d(current, coeff, rhs):
     co21 = coeff2[:6]
     u, v = current
     ###
-    mod_r1 = r1 - mu.operator(np.array([v]), np.array([co12]))[0]
+    mod_r1 = r1 - et.operator(np.array([v]), np.array([co12]))[0]
     u = xGS_1d([u], [co11], [mod_r1])[0]
     ###
-    mod_r2 = r2 - mu.operator(np.array([u]), np.array([co21]))[0]
+    mod_r2 = r2 - et.operator(np.array([u]), np.array([co21]))[0]
     v = xGS_1d([v], [co22], [mod_r2])[0]
     ###
     return np.array([u, v])
@@ -552,10 +551,10 @@ def decoupled_yGS_2d(current, coeff, rhs):
     co21 = coeff2[:6]
     u, v = current
     ###
-    mod_r1 = r1 - mu.operator(np.array([v]), np.array([co12]))[0]
+    mod_r1 = r1 - et.operator(np.array([v]), np.array([co12]))[0]
     u = yGS_1d([u], [co11], [mod_r1])[0]
     ###
-    mod_r2 = r2 - mu.operator(np.array([u]), np.array([co21]))[0]
+    mod_r2 = r2 - et.operator(np.array([u]), np.array([co21]))[0]
     v = yGS_1d([v], [co22], [mod_r2])[0]
     ###
     return np.array([u, v])
@@ -587,10 +586,10 @@ def decoupled_GS_2d(current, coeff, rhs):
     co21 = coeff2[:6]
     u, v = current
     ###
-    mod_r1 = r1 - mu.operator(np.array([v]), np.array([co12]))[0]
+    mod_r1 = r1 - et.operator(np.array([v]), np.array([co12]))[0]
     u = GS_1d([u], [co11], [mod_r1])[0]
     ###
-    mod_r2 = r2 - mu.operator(np.array([u]), np.array([co21]))[0]
+    mod_r2 = r2 - et.operator(np.array([u]), np.array([co21]))[0]
     v = GS_1d([v], [co22], [mod_r2])[0]
     ###
     return np.array([u, v])
@@ -714,94 +713,13 @@ def aZGS_2d_decoupled(current, coeff, rhs):
     co21 = coeff2[:6]
     u, v = current
     ###
-    mod_r1 = r1 - mu.operator(np.array([v]), np.array([co12]))[0]
+    mod_r1 = r1 - et.operator(np.array([v]), np.array([co12]))[0]
     u = aZGS_1d([u], [co11], [mod_r1])[0]
     ###
-    mod_r2 = r2 - mu.operator(np.array([u]), np.array([co21]))[0]
+    mod_r2 = r2 - et.operator(np.array([u]), np.array([co21]))[0]
     v = aZGS_1d([v], [co22], [mod_r2])[0]
     ###
     return np.array([u, v])
-
-class solver:
-    def __init__(self, smoother, tol=None, verbose=False):
-        self.smoother = smoother
-        self.tol = tol
-        self.verbose = verbose
-
-    def sweep(self, equation, current, rhs, **kwargs):
-        current = self.smoother(equation, current, rhs, **kwargs)
-        return current
-
-    # current, rhs,
-    def detailed_solve(self, equation, current, rhs, **kwargs):
-        if self.tol == None:
-            J = int(np.log2(len(current[0])-1))
-            tol = 2**(-2*J)
-        else:
-            tol = self.tol
-        d = equation.rhs_defects(current, rhs)
-        i = 0
-        N = equation.n_equations
-        if self.verbose:
-            print('Tolerance is {:1.2}'.format(tol))
-            print('Iteration', i)
-            if N == 2:
-                print('          Defect 1 = {:1.2}, Defect 2 = {:1.2}'.format(d[0], d[1]))
-            if N == 1:
-                print('          Defect = {:1.2}'.format(d[0]))
-        if N == 1:
-            while d[0]>tol:
-                current = self.sweep(equation, current, rhs, **kwargs)
-                i+=1
-                d = equation.rhs_defects(current, rhs)
-                if self.verbose:
-                    print('Iteration', i)
-                    print('          Defect = {:1.2}'.format(d[0]))
-        if N == 2:
-            while d[0]>tol or d[1]>tol:
-                current = self.sweep(equation, current, rhs, **kwargs)
-                i+=1
-                d = equation.rhs_defects(current, rhs)
-                if self.verbose:
-                    print('Iteration', i)
-                    print('          Defect 1 = {:1.2}, Defect 2 = {:1.2}'.format(d[0], d[1]))
-        return current
-
-    def solve(self, equation, J, **kwargs):
-        current = equation.produce_initial_guess(J)
-        rhs = equation.rhs(current)
-        if self.tol == None:
-            J = int(np.log2(len(current[0])-1))
-            tol = 2**(-2*J)
-        else:
-            tol = self.tol
-        d = equation.defects(current)
-        i = 0
-        N = equation.n_equations
-        if self.verbose:
-            print('Tolerance is {:1.2}'.format(tol))
-            print('Iteration', i)
-            if N == 2:
-                print('          Defect 1 = {:1.2}, Defect 2 = {:1.2}'.format(d[0], d[1]))
-            if N == 1:
-                print('          Defect = {:1.2}'.format(d[0]))
-        if N == 1:
-            while d[0]>tol:
-                current = self.sweep(equation, current, rhs, **kwargs)
-                i+=1
-                d = equation.defects(current)
-                if self.verbose:
-                    print('Iteration', i)
-                    print('          Defect = {:1.2}'.format(d[0]))
-        if N == 2:
-            while d[0]>tol or d[1]>tol:
-                current = self.sweep(equation, current, rhs, **kwargs)
-                i+=1
-                d = equation.defects(current)
-                if self.verbose:
-                    print('Iteration', i)
-                    print('          Defect 1 = {:1.2}, Defect 2 = {:1.2}'.format(d[0], d[1]))
-        return current
 
 def FAS(equation, current, rhs, pre_smoother, pre_n, post_smoother, post_n, restriction, interpolation, coarse_solver, J_min):
     # Pre-smoothing
@@ -812,7 +730,7 @@ def FAS(equation, current, rhs, pre_smoother, pre_n, post_smoother, post_n, rest
     # Restrict the defect
     coarse_defects = restriction(fine_defects)
     # Restrict the solution
-    coarse_current = mu.injection(current)
+    coarse_current = et.injection(current)
     # Modify the defect
     coarse_defects = coarse_defects + equation.operator(coarse_current)
     # Solve error equation
@@ -833,113 +751,3 @@ def FAS(equation, current, rhs, pre_smoother, pre_n, post_smoother, post_n, rest
     for i in range(post_n):
         current = post_smoother(equation, current, rhs)
     return current
-
-def exact_global_nonlinear_smoother(solver, equation, current, rhs):
-    rhs1 = rhs - equation.operator(current)
-    equation1 = copy.deepcopy(equation)
-    equation1.coefficients = equation1.linear_coefficients
-    equation1.bc = mu.zero_bc
-    current = current + solver.detailed_solve(equation1, current*0, rhs1)
-    return current
-
-def global_nonlinear_smoother(smoother, equation, current, rhs):
-    coeff = equation.linear_coefficients(current)
-    rhs1 = rhs - equation.operator(current)
-    current = current + smoother(0*current, coeff, rhs1)
-    return current
-
-def linear_smoother(smoother, equation, current, rhs):
-    coeff = equation.coefficients(current)
-    current = smoother(current, coeff, rhs)
-    return current
-
-def exact_linear_smoother(equation, current, rhs):
-    D, M, N = current.shape
-    M = N - 2
-    J = int(np.log2(N-1))
-    A, R = equation.dense_representation(J, bc='Special', rhs='Special', current=current, Rh=rhs)
-    solution = np.linalg.inv(A) @ R
-    if D == 2:
-        u, v = np.copy(current)
-        u[1:-1, 1:-1] = solution[:M**2].reshape((M, M)).T
-        v[1:-1, 1:-1] = solution[M**2:].reshape((M, M)).T
-        current = np.array([u, v])
-    if D == 1:
-        u = np.copy(current[0])
-        u[1:-1, 1:-1] = solution.reshape((M, M)).T
-        current = np.array([u,])
-    return current
-
-def nonlinear_aZGS(equation, current, rhs):
-    return global_nonlinear_smoother(aZGS, equation, current, rhs)
-
-def nonlinear_GS(equation, current, rhs):
-    return global_nonlinear_smoother(GS, equation, current, rhs)
-
-def linear_GS(equation, current, rhs):
-    return linear_smoother(GS, equation, current, rhs)
-
-def nonlinear_aGS(equation, current, rhs):
-    return global_nonlinear_smoother(aGS, equation, current, rhs)
-
-def linear_aGS(equation, current, rhs):
-    return linear_smoother(aGS, equation, current, rhs)
-
-def nonlinear_aZGS_with_bc_corrections(equation, current, rhs):
-    return global_nonlinear_smoother(aZGS_2d_coupled_boundary_correction, equation, current, rhs)
-
-def decoupled_nonlinear_aZGS(equation, current, rhs):
-    return global_nonlinear_smoother(aZGS_2d_decoupled, equation, current, rhs)
-
-def linear_aZGS(equation, current, rhs):
-    return linear_smoother(aZGS, equation, current, rhs)
-
-def decoupled_linear_aZGS(equation, current, rhs):
-    return linear_smoother(aZGS_2d_decoupled, equation, current, rhs)
-
-class FAS_solver(solver):
-    def __init__(self, type, pre_smoother=None, pre_n=1, post_smoother=None, post_n=1,\
-                        restriction=mu.linear_restriction, interpolation=mu.linear_interpolation,\
-                                                        coarse_solver=None, J_min=2, tol=None, verbose=False):
-        if type == 'nonlinear':
-            if pre_smoother == None:
-                self.pre_smoother = nonlinear_aZGS
-            else:
-                self.pre_smoother = pre_smoother
-            if post_smoother == None:
-                self.post_smoother = nonlinear_aZGS
-            else:
-                self.post_smoother = post_smoother
-            if coarse_solver == None:
-                self.coarse_solver = solver(nonlinear_aZGS, tol=1e-10)
-            else:
-                self.coarse_solver = coarse_solver
-
-        if type == 'linear':
-            if pre_smoother == None:
-                self.pre_smoother = linear_aZGS
-            else:
-                self.pre_smoother = pre_smoother
-            if post_smoother == None:
-                self.post_smoother = linear_aZGS
-            else:
-                self.post_smoother = post_smoother
-            if coarse_solver == None:
-                self.coarse_solver = solver(linear_aZGS, tol=1e-10)
-            else:
-                self.coarse_solver = coarse_solver
-        self.J_min = J_min
-        self.pre_n = pre_n
-        self.post_n = post_n
-        self.restriction = restriction
-        self.interpolation = interpolation
-        self.tol = tol
-        self.verbose = verbose
-        params = (self.pre_smoother, self.pre_n, self.post_smoother, self.post_n, \
-                            self.restriction, self.interpolation, self.coarse_solver, self.J_min)
-        self.smoother = lambda equation, current, rhs: FAS(equation, current, rhs, *params)
-
-    def refresh_parameters(self):
-        params = (self.pre_smoother, self.pre_n, self.post_smoother, self.post_n, \
-                            self.restriction, self.interpolation, self.coarse_solver, self.J_min)
-        self.smoother = lambda equation, current, rhs: FAS(equation, current, rhs, *params)

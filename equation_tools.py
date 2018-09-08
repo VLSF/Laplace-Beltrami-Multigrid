@@ -499,3 +499,20 @@ def trivial_bc(current):
     current[:, 0, :] = z
     current[:, -1, :] = z
     return current
+
+def homotopy_bc(scale, current, mod_current):
+    N = len(current)
+    P, L = mod_current[0].shape
+    z = np.linspace(0, 1, P)
+    if N == 2:
+        mod_current[0][0, :] = current[0][0, :] * scale
+        mod_current[0][-1, :] = current[0][-1, :] * scale + (1 - scale)
+        mod_current[0][:, 0] = current[0][:, 0] * scale + (1 - scale) * z
+        mod_current[0][:, -1] = current[0][:, -1] * scale + (1 - scale) * z
+
+        mod_current[1][:, 0] = current[1][:, 0] * scale
+        mod_current[1][:, -1] = current[1][:, -1] * scale + (1 - scale)
+        mod_current[1][0, :] = current[1][0, :] * scale + (1 - scale) * z
+        mod_current[1][-1, :] = current[1][-1, :] * scale + (1 - scale) * z
+    else:
+        print('Too trivial for continuation.')

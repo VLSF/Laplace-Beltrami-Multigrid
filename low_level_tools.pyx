@@ -1,48 +1,4 @@
 import numpy as np
-import math
-
-################################################################################
-
-def get_h(N, sign='-'):
-    """
-    This function was created for conformal equation where the spacing is irrelevant.
-    So if your equation is conformal your kindly asked to change the output of this function
-    to 1. Because it can significantly reduce round-off errors.
-    The list of affected functions.
-    low_level_tools:
-        1. dx
-        2. dy
-        3. xGS_correction -> solvers
-                            1. xGS_1d
-        4. yGS_correction -> solvers
-                            1. yGS_1d
-        5. PDE -> in multigrid_utilities
-                1. defects_2d
-                2. residuals_2d
-                3. operator_1d
-                4. operator_2d
-                5. defects_1d
-                6. residuals_1d
-                7. residuals
-                8. operator
-                9. defects
-    solvers:
-        1. xGS_1d
-        2. yGS_1d
-        3. solve_tridiagonal -> solvers
-                                1. xGS_1d
-                                2. yGS_1d
-    The list is incomplete as it contain only "low level" functions. Classes -
-    solver and equation - are affected too as far as they implementation includes
-    functions above.
-    """
-    res = 1/(N-1)
-    if sign == '+':
-        res = 1/(N+1)
-    #res = 1
-    return res
-
-################################################################################
 
 def xRed_correction_2d(double [:,:] u, double [:,:] v, N, coeff):
     h = 1/(N-1)
@@ -148,7 +104,7 @@ def yBlack_correction_2d(double [:,:] u, double [:,:] v, N, coeff):
     return w
 
 def PDE(double [:,:] u, N,  coefficients):
-    h = get_h(N)
+    h = 1/(N-1)
     a, b, c, d, e, f = coefficients
     v = np.zeros((N, N))
     cdef long i, j
@@ -248,7 +204,7 @@ def xRed_correction_1d(double [:,:] u, N, coeff):
     return w
 
 def xGS_correction(double [:,:] u, N, coeff, long j):
-    h = get_h(N)
+    h = 1/(N-1)
     a1, c1, e1 = coeff
     w = np.zeros_like(u[:, j])
     cdef long i
@@ -259,7 +215,7 @@ def xGS_correction(double [:,:] u, N, coeff, long j):
     return w
 
 def yGS_correction(double [:,:] u, N, coeff, long i):
-    h = get_h(N)
+    h = 1/(N-1)
     b1, c1, d1 = coeff
     w = np.zeros_like(u[i, :])
     cdef long j
@@ -397,7 +353,7 @@ def dx_backward(double [:,:] u, N):
     return v
 
 def dx(double [:,:] u, N):
-    h = get_h(N)
+    h = 1/(N-1)
     v = np.zeros_like(u)
     cdef long i, j
     for j in range(1, N-1):
@@ -424,7 +380,7 @@ def dy_backward(double [:,:] u, N):
     return v
 
 def dy(double [:,:] u, N):
-    h = get_h(N)
+    h = 1/(N-1)
     v = np.zeros_like(u)
     cdef long i, j
     for i in range(1, N-1):
