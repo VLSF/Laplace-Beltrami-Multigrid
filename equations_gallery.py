@@ -544,7 +544,7 @@ def get_quasilinear(dim, number, a=1):
     Parameters
     ----------
     dim: int
-    Dimensionality: 2 for to equations, 1 for the one equation.
+    Dimensionality: 2 for two equations, 1 for the one equation.
 
     number: int
     The number of the equation: 1 or 2 in case of any dimensionality.

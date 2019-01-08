@@ -275,7 +275,7 @@ class equation:
         if self.n_equations == 1:
             if bc == 'Default':
                 trial = [np.zeros((M, M)), ]
-                trial = self.bc(trial)[0]
+                trial = self.bc(trial)#[0]
             if bc == 'Special':
                 trial = current
             if rhs == 'Default':
